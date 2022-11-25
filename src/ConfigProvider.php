@@ -32,7 +32,7 @@ class ConfigProvider
                     'id' => 'migration',
                     'description' => 'user operation logger datasheet migration',
                     'source' => __DIR__ . '/../migrations/user_operation_logger_table.php',
-                    'destination' => BASE_PATH . '/migrations/autoload/' . date('Y_m_d_His') . '_create_operation_logger_table.php',
+                    'destination' => BASE_PATH . '/migrations/' . date('Y_m_d_His') . '_create_operation_logger_table.php',
                 ],
             ],
         ];

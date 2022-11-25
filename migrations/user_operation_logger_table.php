@@ -9,10 +9,10 @@ class CreateOperationLoggerTable extends \Hyperf\Database\Migrations\Migration
      */
     public function up()
     {
-        \Hyperf\Database\Schema\Schema::table('user_operation_logger', function (\Hyperf\Database\Schema\Blueprint $table) {
-            $table->increments('id');
-            $table->string('trigger_class', 96)->default('')->comment('触发类');
-            $table->integer('associated_id', 11)->default('')->comment('关联主键');
+        \Hyperf\Database\Schema\Schema::create('user_operation_logger', function (\Hyperf\Database\Schema\Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('trigger_class', 192)->default('')->comment('触发类');
+            $table->bigInteger('associated_id')->default(0)->comment('关联主键');
             $table->string('associated_value', 32)->default('')->comment('业务关键键');
             $table->string('user_name', 32)->default('')->comment('用户名称');
             $table->string('user_id', 32)->default('')->comment('用户名称');

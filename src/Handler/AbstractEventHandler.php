@@ -15,7 +15,8 @@ use Doctrine\DBAL\Platforms\MySQL57Platform;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
-use Huanhyperf\Database\Model\Model;
+use Huanhyperf\Squealer\Contract\SquealerInterface;
+use Hyperf\Database\Model\Model;
 use Huanhyperf\Squealer\LoggedEvent;
 use Huanhyperf\Squealer\Traits\CommentParser;
 use Hyperf\Database\Model\Events\Event;
@@ -80,7 +81,7 @@ abstract class AbstractEventHandler
         $this->mySQL57Platform = new MySQL57Platform();
         // 数据库管理器
         $this->schemaManager = $this->getSchemaManager();
-        $ignoreList = array_merge(self::IGNORE_LIST, config('operation_logger.ignore_list'));
+        $ignoreList = array_merge(self::IGNORE_LIST, config('squealer.ignore_list', ['id', '_at']));
         $this->ignoreList = array_unique($ignoreList);
         $this->shortTagMapping = $this->getModelShortTagMapping();
     }
@@ -89,7 +90,7 @@ abstract class AbstractEventHandler
      * 事件处理方法.
      * @return mixed
      */
-    abstract public function process(Event $event);
+    abstract public function process(?Event $event);
 
     /**
      * 获取可记录的loggedEvent对象
@@ -98,10 +99,10 @@ abstract class AbstractEventHandler
     public function getLoggedEvent(Model $model, string $eventType = '', string $clientIp = ''): LoggedEvent
     {
         /**
-         * @var Model $model
+         * @var Model|SquealerInterface $model
          */
         $loggedEvent = new LoggedEvent();
-        $loggedEvent->setUserName($model->getUserName());
+        $loggedEvent->setUserName($model->getCurrentUserInfo()->userName);
         $loggedEvent->setTriggerTime(date('Y-m-d H:i:s'));
         $loggedEvent->setClientIp($clientIp);
         $loggedEvent->setChangeContent($this->loadChangeContent($model, $eventType));
@@ -188,10 +189,10 @@ abstract class AbstractEventHandler
 
                 $before = '';
                 if (isset($original[$field])) {
-                    $before = $model->getFormatAttributeValue($field, $original[$field], $fieldEnum);
+                    $before = $model->mutateAttributes($field, $original[$field], $fieldEnum);
                 }
 
-                $after = is_null($value) ? null : $model->getFormatAttributeValue($field, $value, $fieldEnum);
+                $after = is_null($value) ? null : $model->mutateAttributes($field, $value, $fieldEnum);
                 $changeContent = $before ? '【%s】由 %s 变为： %s；' . PHP_EOL : '【%s】更新为：%s%s；' . PHP_EOL;
                 if ($before != $after && ! is_null($after) && is_string($before) && is_string($after)) {
                     $changeContents .= sprintf($changeContent, $fieldName, $before, $after);

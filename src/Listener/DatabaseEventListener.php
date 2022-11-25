@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Huanhyperf\Squealer\Listener;
 
+use Huanhyperf\Database\Model\Model;
 use Huanhyperf\Squealer\Contract\SquealerInterface;
+use Huanhyperf\Squealer\Handler\AutoRecordHandler;
 use Hyperf\Database\Model\Events\Created;
 use Hyperf\Database\Model\Events\Deleted;
 use Hyperf\Database\Model\Events\ForceDeleted;
@@ -50,16 +52,20 @@ class DatabaseEventListener implements ListenerInterface
      */
     public function process(object $event)
     {
+        /**
+         * @var Model|SquealerInterface $model
+         */
         $model = $event->getModel();
         if (! $model instanceof SquealerInterface) {
             $this->logger->debug(get_class($model) . ' Didn\'t Implement SquealerInterface, Skipped');
             return;
         }
-        info([
+        warning([
             'event_name' => $event->getMethod(),
             'dirty' => $model->getDirty(),
             'before' => $model->getOriginal(),
             'after' => $model->getAttributes(),
-        ]);
+        ], 'holy-shit');
+        make(AutoRecordHandler::class)->process($event);
     }
 }
