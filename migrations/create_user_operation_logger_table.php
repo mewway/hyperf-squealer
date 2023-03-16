@@ -1,6 +1,6 @@
 <?php
 
-class CreateOperationLoggerTable extends \Hyperf\Database\Migrations\Migration
+class CreateUserOperationLoggerTable extends \Hyperf\Database\Migrations\Migration
 {
     /**
      * Run the migrations.
@@ -20,6 +20,9 @@ class CreateOperationLoggerTable extends \Hyperf\Database\Migrations\Migration
             $table->dateTime('trigger_time')->comment('触发时间');
             $table->string('event_desc', 256)->default('')->comment('事件描述');
             $table->string('change_content', 2048)->default('')->comment('变化内容');
+            $table->string('sensitive_desc', 512)->default('')->comment('敏感数据变化');
+            $table->comment('用户操作记录表');
+            $table->index(['trigger_class', 'associated_id']);
         });
     }
 

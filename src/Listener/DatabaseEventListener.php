@@ -40,7 +40,6 @@ class DatabaseEventListener implements ListenerInterface
         return [
             Created::class,
             Updated::class,
-            Saved::class,
             Deleted::class,
             ForceDeleted::class,
             Restored::class,

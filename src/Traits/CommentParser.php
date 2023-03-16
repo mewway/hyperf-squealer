@@ -21,26 +21,16 @@ trait CommentParser
 
     protected $enumRegex = '/(?<key>\w+)\s*[:：-]?\s*(?<value>\w+)\s*[;,；，]?\s*/u';
 
-    public function parse(string $comment): self
+    public function parse(string $comment): array
     {
         $comment = preg_replace_callback($this->fieldRegex, function ($match) use (&$fieldName) {
             $fieldName = $match['name'] ?? '';
             return '';
         }, $comment);
-        $this->column = $fieldName;
+        $column = $fieldName;
         preg_match_all($this->enumRegex, $comment, $match);
-        $this->enumeration = $this->parseEnumeration($match);
-        return $this;
-    }
-
-    public function getEnumeration(): array
-    {
-        return $this->enumeration;
-    }
-
-    public function getColumn(): string
-    {
-        return $this->column;
+        $enumeration = $this->parseEnumeration($match);
+        return [$column, $enumeration];
     }
 
     private function parseEnumeration(array $match): array

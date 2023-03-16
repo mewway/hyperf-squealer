@@ -50,4 +50,37 @@ STR1;
         $resp = CompareArray::flatten($diff);
         print_r($resp);
     }
+
+
+    public function testDiffWithAlias()
+    {
+        $str1 = <<<STR1
+{"specs":[{"code":"color","extra":{"color":1,"status":"normal","values":56,"required":false,"allow_alias":null},"name":"颜色分类","prop_id":1627207,"type":"color","values":[{"name":"米色","value":"米色","checked":true,"isCustom":true,"old_value":"米色","error":{"name":[],"remark":[],"alias":[]}}]},{"code":"size","extra":{"size":1,"status":"normal","values":38,"required":false,"allow_alias":null},"group":"中国码","name":"尺码","prop_id":20509,"type":"size","values":[{"name":"S","value":"28314","checked":true,"isCustom":true,"old_value":"28314","error":{"name":[],"remark":[],"alias":[]}},{"name":"M","value":"28315","checked":true,"isCustom":true,"old_value":"28315","error":{"name":[],"remark":[],"alias":[]}},{"name":"L","value":"28316","checked":true,"isCustom":true,"old_value":"28316","error":{"name":[],"remark":[],"alias":[]}}]}],"price":"1799.00","price_range":[1799,1799],"description_image":"https:\/\/assets.alicdn.com\/kissy\/1.0.0\/build\/imglazyload\/spaceball.gif"}
+STR1;
+        $str2 = <<<STR1
+{"specs":[{"code":"color","extra":{"color":1,"status":"normal","values":56,"required":false,"allow_alias":null},"name":"颜色分类","prop_id":1627207,"type":"color","values":[{"name":"米色","value":"米色","checked":true,"isCustom":true,"old_value":"米色","error":{"name":[],"remark":[],"alias":[]},"remark":"米色色"},{"name":"羞色","value":"羞色095bd58b84c61","checked":true,"remark":"黄色","isCreate":true,"error":{"name":[],"remark":[],"alias":[]}}]},{"code":"size","extra":{"size":1,"status":"normal","values":38,"required":false,"allow_alias":null},"group":"中国码","name":"尺码","prop_id":20509,"type":"size","values":[{"name":"S","value":"28314","checked":true,"isCustom":true,"old_value":"28314","error":{"name":[],"remark":[],"alias":[]},"remark":"SL"},{"name":"M","value":"28315","checked":true,"isCustom":true,"old_value":"28315","error":{"name":[],"remark":[],"alias":[]},"remark":"ML"},{"name":"L","value":"28316","checked":true,"isCustom":true,"old_value":"28316","error":{"name":[],"remark":[],"alias":[]},"remark":"LL"}]}],"price":"1799.00","price_range":["",1799],"description_image":"https:\/\/assets.alicdn.com\/kissy\/1.0.0\/build\/imglazyload\/spaceball.gif"}
+STR1;
+        $arr1 = json_decode($str1, true);
+        $arr2 = json_decode($str2, true);
+        $map = [
+            'specs.*.code' => '规格.*.编码',
+            'specs.*.extra.color' => '规格.*.其他.是否是颜色',
+            'specs.*.extra.status' => '规格.*.其他.规格状态',
+            'specs.*.extra.values' => '规格.*.其他.规格值',
+            'specs.*.extra.required' => '规格.*.其他.是否必填',
+            'specs.*.name' => '规格.*.名称',
+            'specs.*.prop_id' => '规格.*.属性id',
+            'specs.*.values.*.name' => '规格.*.列表.*.名称',
+            'specs.*.values.*.remark' => '规格.*.列表.*.备注',
+            'price' => '价格',
+            'price_range.0' => '价格范围',
+            'description_image' => '图片',
+        ];
+        $diff = CompareArray::diffWithAlias($arr1, $arr2, $map);
+        $this->assertIsArray($diff);
+        print_r($diff);
+        foreach ($diff as $key => $value) {
+            var_dump($value->toHumanReadable($key));
+        }
+    }
 }

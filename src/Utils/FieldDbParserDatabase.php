@@ -6,14 +6,17 @@ use Doctrine\DBAL\Platforms\MySQL57Platform;
 use Doctrine\DBAL\Platforms\MySQL80Platform;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Doctrine\DBAL\Schema\Table;
-use Huanhyperf\Squealer\Contract\ParseFieldInterface;
+use Huanhyperf\Squealer\Contract\DatabaseParseFieldInterface;
 use Huanhyperf\Squealer\Traits\CommentParser;
 use Hyperf\Database\Model\Model;
 use Hyperf\Database\Schema\Schema;
 use Hyperf\Utils\ApplicationContext;
 use Psr\SimpleCache\CacheInterface;
 
-class FieldDbParser implements ParseFieldInterface
+/**
+ * 字段解析类 通过数据库
+ */
+class FieldDbParserDatabase implements DatabaseParseFieldInterface
 {
     use CommentParser;
 
@@ -44,7 +47,7 @@ class FieldDbParser implements ParseFieldInterface
     /**
      * 根据模型获取表结构信息.
      */
-    protected function getTableDetailByModel(Model $model): Table
+    public function getTableDetailByModel(Model $model): Table
     {
         // 完整表名
         $fullTable = $model->getConnection()->getTablePrefix() . $model->getTable();
@@ -66,7 +69,7 @@ class FieldDbParser implements ParseFieldInterface
         return $detail;
     }
 
-    public function getTableAlias(string $table): string
+    public function getTableAlias(string $table = ''): string
     {
         $tableDetail = $this->getTableDetail($table);
         $tableName = $tableDetail->getComment();
@@ -74,33 +77,35 @@ class FieldDbParser implements ParseFieldInterface
         return reset($tableNameArr) ?: $table;
     }
 
-    public function getFieldAlias(string $field, string $table): string
+    public function getFieldAlias(string $field, string $table = ''): string
     {
         $tableDetail = $this->getTableDetail($table);
         $columns = $tableDetail->getColumns();
         foreach ($columns as $column) {
             if ($column->getName() === $field) {
-                return $this->parse($column->getComment())->getColumn();
+                [$fieldName, $fieldEnum] =  $this->parse($column->getComment());
+                return $fieldName;
             }
         }
 
         return $field;
     }
 
-    public function getEnums(string $field, string $table): ?array
+    public function getEnums(string $field, string $table = ''): ?array
     {
         $tableDetail = $this->getTableDetail($table);
         $columns = $tableDetail->getColumns();
         foreach ($columns as $column) {
             if ($column->getName() === $field) {
-                return $this->getEnumeration();
+                [$fieldName, $fieldEnum] =  $this->parse($column->getComment());
+                return $fieldEnum;
             }
         }
 
         return null;
     }
 
-    public function getFieldType(string $field, string $table): ?string
+    public function getFieldType(string $field, string $table = ''): ?string
     {
         $tableDetail = $this->getTableDetail($table);
         $columns = $tableDetail->getColumns();

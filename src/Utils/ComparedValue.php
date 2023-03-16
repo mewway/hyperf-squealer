@@ -13,11 +13,17 @@ namespace Huanhyperf\Squealer\Utils;
 
 class ComparedValue
 {
-    public const TYPE_ADDED = 'added';
+    const TYPE_ADDED = 'created';
 
-    public const TYPE_REMOVED = 'removed';
+    const TYPE_REMOVED = 'deleted';
 
-    public const TYPE_MODIFIED = 'modified';
+    const TYPE_MODIFIED = 'updated';
+
+    const TYPE_MAP = [
+        self::TYPE_ADDED => '新增',
+        self::TYPE_REMOVED => '移除',
+        self::TYPE_MODIFIED => '修改',
+    ];
 
     public $oldValue;
 
@@ -33,5 +39,18 @@ class ComparedValue
         $this->oldValue = $oldValue;
         $this->newValue = $newValue;
         $this->type = $type;
+    }
+
+    public function toHumanReadable(string $objName): string
+    {
+        $operation = self::TYPE_MAP[$this->type] ?? '操作';
+        $desc = sprintf('值为： %s', $this->newValue);
+        if ($this->type === self::TYPE_MODIFIED) {
+            $desc = sprintf('值由： %s 变为： %s', $this->oldValue, $this->newValue);
+        } elseif ($this->type === self::TYPE_REMOVED) {
+            $desc = sprintf('原值为： %s', $this->oldValue);
+        }
+
+        return sprintf('【%s 了 %s】%s', $operation, $objName, $desc);
     }
 }

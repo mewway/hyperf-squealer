@@ -2,14 +2,14 @@
 
 namespace Huanhyperf\Squealer\Contract;
 
-interface ParseFieldInterface
+interface DatabaseParseFieldInterface
 {
     /**
      * 获取表含义
      * @param string $table
      * @return string
      */
-    public function getTableAlias(string $table):string;
+    public function getTableAlias(string $table = ''):string;
 
     /**
      * 获取字段含义
@@ -17,7 +17,7 @@ interface ParseFieldInterface
      * @param string $table
      * @return string
      */
-    public function getFieldAlias(string $field, string $table): string;
+    public function getFieldAlias(string $field, string $table = ''): string;
 
     /**
      * 获取字段类型
@@ -25,7 +25,7 @@ interface ParseFieldInterface
      * @param string $table
      * @return string
      */
-    public function getFieldType(string $field, string $table): ?string;
+    public function getFieldType(string $field, string $table = ''): ?string;
 
     /**
      * 获取枚举值map
@@ -33,5 +33,5 @@ interface ParseFieldInterface
      * @param string $table
      * @return array|null
      */
-    public function getEnums(string $field, string $table): ?array;
+    public function getEnums(string $field, string $table = ''): ?array;
 }

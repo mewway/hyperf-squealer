@@ -16,6 +16,11 @@ use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use Huanhyperf\Squealer\Contract\SquealerInterface;
+use Huanhyperf\Squealer\Traits\SquealerLoggerHelper;
+use Huanhyperf\Squealer\Utils\CompareArray;
+use Huanhyperf\Squealer\Utils\DatabaseValueParser;
+use Huanhyperf\Squealer\Utils\FieldDbParserDatabase;
+use Huanhyperf\Squealer\Utils\SquealerConfigCollector;
 use Hyperf\Database\Model\Model;
 use Huanhyperf\Squealer\LoggedEvent;
 use Huanhyperf\Squealer\Traits\CommentParser;
@@ -45,16 +50,6 @@ abstract class AbstractEventHandler
     ];
 
     /**
-     * @var MySQL57Platform
-     */
-    protected $mySQL57Platform;
-
-    /**
-     * @var \Doctrine\DBAL\Schema\AbstractSchemaManager
-     */
-    protected $schemaManager;
-
-    /**
      * @var array
      */
     protected $shortTagMapping = [];
@@ -78,10 +73,8 @@ abstract class AbstractEventHandler
 
     public function __construct()
     {
-        $this->mySQL57Platform = new MySQL57Platform();
-        // 数据库管理器
-        $this->schemaManager = $this->getSchemaManager();
         $ignoreList = array_merge(self::IGNORE_LIST, config('squealer.ignore_list', ['id', '_at']));
+
         $this->ignoreList = array_unique($ignoreList);
         $this->shortTagMapping = $this->getModelShortTagMapping();
     }
@@ -121,6 +114,9 @@ abstract class AbstractEventHandler
      */
     public function loadChangeContent(Model $model, string $eventType = '')
     {
+        /**
+         * @var SquealerLoggerHelper|SquealerInterface|Model $model
+         */
         $className = get_class($model);
         $original = $model->getOriginal();
         $changes = $model->getChanges();
@@ -130,10 +126,14 @@ abstract class AbstractEventHandler
         if (defined("{$model}::DELETED_AT")) {
             $ignoreList[] = $model::DELETED_AT;
         }
-        // 获取表结构信息
-        $tableDetail = $this->getTableDetailByModel($model);
+        /**
+         * 获取表结构信息
+         * @var FieldDbParserDatabase $databaseFieldParser
+         */
+        $databaseFieldParser = make(FieldDbParserDatabase::class);
+        $tableDetail = $databaseFieldParser->getTableDetailByModel($model);
         // 优先取短标记 没有取表名
-        $objectName = $this->shortTagMapping[$className] ?? $this->getTableNameFromDbal($tableDetail) ?? $model->getTable();
+        $objectName = $model->getTableAlias() ?? $databaseFieldParser->getTableAlias($model->getTable()) ?? $model->getTable();
 
         $columns = $tableDetail->getColumns();
         $changeContents = '';
@@ -155,45 +155,39 @@ abstract class AbstractEventHandler
                 if (empty($column)) {
                     continue;
                 }
-
-                $type = $column->getType()->getName();
-                $comment = $column->getComment();
-                $parser = $this->parse($comment);
-                $fieldName = $parser->getColumn();
-                $fieldEnum = $parser->getEnumeration();
-                switch ($type) {
-                    // 数值型
-                    case Types::INTEGER:
-                    case Types::SMALLINT:
-                    case Types::BOOLEAN:
-                        $value = intval($value);
-                        break;
-                    case Types::FLOAT:
-                        $scale = $column->getScale();
-                        $value = round(floatval($value), $scale);
-                        break;
-                    case Types::BIGINT:
-                    case Types::DECIMAL:
-                        $scale = $column->getScale();
-                        $value = number_format(floatval($value), $scale, '.', '');
-                        break;
-                        // 字符型
-                    case Types::STRING:
-                        $value = $column->getType()->convertToDatabaseValue($value, $this->mySQL57Platform);
-                        break;
-                        // 其他的暂时都不处理其变化
-                    default:
-                        $value = null;
-                        break;
+                // 优先从类中取字段和枚举值定义 否则从数据库中取
+                $fieldGroup = [$fieldName, $fieldEnum] = $model->parse($field);
+                if (is_null($fieldGroup) || array_filter($fieldGroup) !== $fieldGroup) {
+                    $comment = $column->getComment();
+                    [$newFieldName, $newFieldEnums] = $this->parse($comment);
+                    $fieldName ??= $newFieldName;
+                    $fieldEnum ??= $newFieldEnums;
                 }
 
-                $before = '';
-                if (isset($original[$field])) {
+                $value = DatabaseValueParser::format($value, $column);
+
+                $before = $original[$field] ?? null;
+                if (isset($original[$field]) && !is_array($original[$field])) {
                     $before = $model->mutateAttributes($field, $original[$field], $fieldEnum);
                 }
 
-                $after = is_null($value) ? null : $model->mutateAttributes($field, $value, $fieldEnum);
-                $changeContent = $before ? '【%s】由 %s 变为： %s；' . PHP_EOL : '【%s】更新为：%s%s；' . PHP_EOL;
+                if (is_null($value)) {
+                    $after = null;
+                    $changeContent = $before ? '【%s】由 %s 变为： %s；' . PHP_EOL : '【%s】更新为：%s%s；' . PHP_EOL;
+                } elseif (is_array($value)) {
+                    $alias = defined("{$model}::MODEL_FIELD_MAPPING") ? ($model::MODEL_FIELD_MAPPING[$field] ?? []) : [];
+                    $diff = CompareArray::diffWithAlias($before, $value, $alias);
+                    $after = '';
+                    foreach ($diff as $kName => $comparedValue) {
+                        $after .= $comparedValue->toHumanReadable($kName) . PHP_EOL;
+                    }
+                    $before = '';
+                    $after = $after ?: null;
+                    $changeContent = '【%s】： %s%s；' . PHP_EOL;
+                } else {
+                    $after = $model->mutateAttributes($field, $value, $fieldEnum);
+                    $changeContent = $before ? '【%s】由 %s 变为： %s；' . PHP_EOL : '【%s】更新为：%s%s；' . PHP_EOL;
+                }
                 if ($before != $after && ! is_null($after) && is_string($before) && is_string($after)) {
                     $changeContents .= sprintf($changeContent, $fieldName, $before, $after);
                 }
@@ -214,7 +208,7 @@ abstract class AbstractEventHandler
      */
     public static function getClasses($rootOnly = true)
     {
-        $config = config('operation_logger', []);
+        $config = SquealerConfigCollector::config();
         $classes = [];
         foreach ($config as $class) {
             $classes[] = [
@@ -255,21 +249,6 @@ abstract class AbstractEventHandler
     }
 
     /**
-     * 有缓存地获取表结构详情.
-     * @param string $fullTable
-     */
-    protected function getTableDetailWithCache($fullTable): Table
-    {
-        $cache = ApplicationContext::getContainer()->get(CacheInterface::class);
-        if ($cache->has(self::CACHE_KEY . 'table_detail:' . $fullTable)) {
-            return $cache->get(self::CACHE_KEY . 'table_detail:' . $fullTable);
-        }
-        $detail = $this->schemaManager->listTableDetails($fullTable);
-        $cache->set(self::CACHE_KEY . 'table_detail:' . $fullTable, $detail, self::CACHE_TIME);
-        return $detail;
-    }
-
-    /**
      * 初始化标识字段和获取短标记映射.
      * @return array
      */
@@ -279,35 +258,5 @@ abstract class AbstractEventHandler
         $this->taggedFieldMapping = static::getMapping('class_name', 'tagged_field');
         $this->relatedKeyMapping = static::getMapping('class_name', 'related_key');
         return $mapping;
-    }
-
-    /**
-     * 获取数据库中的表名.
-     * @return mixed
-     */
-    protected function getTableNameFromDbal(Table $tableDetail)
-    {
-        $operationObjectName = $tableDetail->getComment();
-        $nameArr = explode(' ', $operationObjectName);
-        return reset($nameArr) ?: null;
-    }
-
-    /**
-     * 根据模型获取表结构信息.
-     */
-    protected function getTableDetailByModel(Model $model): Table
-    {
-        // 完整表名
-        $fullTable = $model->getConnection()->getTablePrefix() . $model->getTable();
-        return $this->getTableDetailWithCache($fullTable);
-    }
-
-    /**
-     * 获取数据库管理器.
-     * @return \Doctrine\DBAL\Schema\AbstractSchemaManager
-     */
-    private function getSchemaManager()
-    {
-        return $this->schemaManager = Schema::getConnection()->getDoctrineSchemaManager();
     }
 }

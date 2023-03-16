@@ -5,7 +5,7 @@ namespace Huanhyperf\Squealer\Strategy;
 /**
  * 价格保护策略 当监听价格变化符合策略保护机制的时候触发
  */
-class PriceProtectedStrategy extends AbstractStrategy
+class PriceProtectionStrategy extends AbstractStrategy
 {
     /**
      * 最小可定义价格
