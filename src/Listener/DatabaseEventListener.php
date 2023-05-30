@@ -11,7 +11,6 @@ use Hyperf\Database\Model\Events\Created;
 use Hyperf\Database\Model\Events\Deleted;
 use Hyperf\Database\Model\Events\ForceDeleted;
 use Hyperf\Database\Model\Events\Restored;
-use Hyperf\Database\Model\Events\Saved;
 use Hyperf\Database\Model\Events\Updated;
 use Hyperf\Event\Annotation\Listener;
 use Hyperf\Event\Contract\ListenerInterface;
@@ -25,6 +24,13 @@ use Psr\Log\LoggerInterface;
 #[Listener]
 class DatabaseEventListener implements ListenerInterface
 {
+    const EVENT_MAP = [
+        Created::class => 'created',
+        Updated::class => 'updated',
+        Deleted::class => 'deleted',
+        ForceDeleted::class => 'deleted',
+        Restored::class => 'restored',
+    ];
     /**
      * @var LoggerInterface
      */
@@ -37,17 +43,11 @@ class DatabaseEventListener implements ListenerInterface
 
     public function listen(): array
     {
-        return [
-            Created::class,
-            Updated::class,
-            Deleted::class,
-            ForceDeleted::class,
-            Restored::class,
-        ];
+        return array_keys(static::EVENT_MAP);
     }
 
     /**
-     * @param Created|Deleted|ForceDeleted|object|Restored|Saved|Updated $event
+     * @param Created|Deleted|ForceDeleted|object|Restored|Updated $event
      */
     public function process(object $event)
     {
@@ -59,12 +59,7 @@ class DatabaseEventListener implements ListenerInterface
             $this->logger->debug(get_class($model) . ' Didn\'t Implement SquealerInterface, Skipped');
             return;
         }
-        warning([
-            'event_name' => $event->getMethod(),
-            'dirty' => $model->getDirty(),
-            'before' => $model->getOriginal(),
-            'after' => $model->getAttributes(),
-        ], 'holy-shit');
-        make(AutoRecordHandler::class)->process($event);
+
+        make(AutoRecordHandler::class)->process($event, static::EVENT_MAP[get_class($event)]);
     }
 }

@@ -11,10 +11,7 @@ declare(strict_types=1);
  */
 namespace Huanhyperf\Squealer\Handler;
 
-use Doctrine\DBAL\Platforms\MySQL57Platform;
 use Doctrine\DBAL\Schema\Column;
-use Doctrine\DBAL\Schema\Table;
-use Doctrine\DBAL\Types\Types;
 use Huanhyperf\Squealer\Contract\SquealerInterface;
 use Huanhyperf\Squealer\Traits\SquealerLoggerHelper;
 use Huanhyperf\Squealer\Utils\CompareArray;
@@ -25,9 +22,6 @@ use Hyperf\Database\Model\Model;
 use Huanhyperf\Squealer\LoggedEvent;
 use Huanhyperf\Squealer\Traits\CommentParser;
 use Hyperf\Database\Model\Events\Event;
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Utils\ApplicationContext;
-use Psr\SimpleCache\CacheInterface;
 
 abstract class AbstractEventHandler
 {
@@ -81,9 +75,10 @@ abstract class AbstractEventHandler
 
     /**
      * 事件处理方法.
+     * @param string $eventType
      * @return mixed
      */
-    abstract public function process(?Event $event);
+    abstract public function process(?Event $event, string $eventType);
 
     /**
      * 获取可记录的loggedEvent对象
